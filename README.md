@@ -1,6 +1,9 @@
 # Million-song-challenge
 Kaggle challenge
+
+
 Peter MARTIGNY, 2AD
+
 Systèmes de recommandations et application à la prévision de ratings de chansons dans l’industrie du disque (EMI Group)
 (Issu du projet Kaggle Million Song Dataset Challenge)
 Introduction
