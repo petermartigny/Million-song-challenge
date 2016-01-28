@@ -6,51 +6,30 @@ Peter MARTIGNY, 2AD
 
 Systèmes de recommandations et application à la prévision de ratings de chansons dans l’industrie du disque (EMI Group)
 (Issu du projet Kaggle Million Song Dataset Challenge)
+
 Introduction
+
 En Juillet 2012, la communauté Data Science London a organisé, en collaboration avec EMI Music (leader de l’industrie musicale), le Hackathon « Can you predict who will love a new song ? », chalenge qui a été hébergé par Kaggle.
 Le principe est simple : EMI Music souhaite améliorer la qualité de son offre et la connaissance de ses clients, en leur proposant des recommandations musicales personnalisées. Le but de ce projet est de développer un système de recommandation capable d’aider EMI Music à personnaliser son offre musicale.
+
+
 Quest-ce qu'un système de recommandation ?
+
 Il esxiste une quantité considérable de musiques, et il est inconcevable pour un utilisateur de les écouter toutes pour se faire une idée de son appréciation. Un système de recommandation permet d'apporter une aide à l'utilisateur, et lui permet de lui recommander des musiques qu'il ne connait pas encore mais qui pourraient lui plaire étant donné ses écoutes précédentes, la similarité des nouvelles musiques avec celles qu'il connait déjà, ou encore le fait que des personnes ayant les mêmes goûts aient apprécié ces musiques.
+
 Nous disposons dans ce projet de deux bases rendues publiques par EMI Music :
+
 users, présente les caractéristiques des utilisateurs
 train présente les notes données par ces utilisateurs sur un certain nombre de chansons sélectionnées
+
 Comment allons-nous y prendre ?
+
 Durant ce projet, nous nous proposons dans un premier temps de regarder les données fournies et de dégager des premières informations. Dans un second temps, nous étudions le problème d'un point de vue machine learning. Nous cherchons à savoir si un utilisateur va aimer une musique ou non. Nous introduirons alors une variable 'like' valant 0 ou 1, et notre objectif sera une prédiction de type classification binaire. Nous verrons alors plusieurs algorithmes permettant de répondre à cette interrogations. Dans une troisième approche, nous tenterons de prédire la note (entre 0 et 100) donnée à une nouvelle chanson, par l'approche collaborative, en développant une approche centrée sur l'utilisateur, puis sa version duale (approche centrée sur la musique). Enfin, nous aborderons succintement une méthode de factorisation de matrice, permettant également de calculer les notes de musiques qui n'ont pas encore été notées.
+
 1) Commencons par observer ces bases
-In [180]:
 
-% pylab inline
-import pandas as pd
-import numpy as np
-​
-users=pd.read_csv("C:/Users/utilisateur/Desktop/Projet Python/EMI music data science/users.csv")
-ratings=pd.read_csv("C:/Users/utilisateur/Desktop/Projet Python/EMI music data science/train.csv")
-​
-Populating the interactive namespace from numpy and matplotlib
-WARNING: pylab import has clobbered these variables: ['clf']
-`%matplotlib` prevents importing * from pylab and numpy
-In [181]:
+users contient :
 
-users.head(1)
-Out[181]:
-RESPID	GENDER	AGE	WORKING	REGION	MUSIC	LIST_OWN	LIST_BACK	Q1	Q2	...	Q10	Q11	Q12	Q13	Q14	Q15	Q16	Q17	Q18	Q19
-0	36927	Female	60	Other	South	Music is important to me but not necessarily m...	1 hour	NaN	49	50	...	50	50	71	52	71	9	7	72	49	26
-1 rows × 27 columns
-In [182]:
-
-users.describe()
-Out[182]:
-RESPID	AGE	Q1	Q2	Q3	Q4	Q5	Q6	Q7	Q8	...	Q10	Q11	Q12	Q13	Q14	Q15	Q16	Q17	Q18	Q19
-count	48645.000000	48178.000000	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	...	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	48645.000000	42210.000000	48645.000000	35520.000000	35520.000000
-mean	25562.400391	39.277180	49.113570	54.624422	51.284449	37.309125	34.585430	39.333615	33.845330	29.161743	...	55.011029	58.636433	53.665898	46.962657	53.446437	39.664562	35.579258	53.826288	42.232447	41.362631
-std	15033.356108	15.955373	27.545252	23.770780	26.487641	23.598351	23.234577	25.744281	25.782182	24.267965	...	25.486398	23.837543	25.389724	26.664165	25.795551	26.061055	25.374290	25.891354	25.680349	26.455730
-min	0.000000	13.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	...	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000	0.000000
-25%	12161.000000	25.000000	28.000000	44.000000	31.000000	14.000000	12.000000	14.000000	10.000000	9.000000	...	41.000000	48.000000	36.000000	28.000000	33.000000	13.000000	11.000000	35.000000	17.000000	14.000000
-50%	26605.000000	39.000000	51.000000	53.000000	52.000000	34.000000	32.000000	35.000000	30.000000	23.000000	...	53.000000	64.000000	54.000000	50.000000	53.000000	37.000000	32.000000	56.000000	47.000000	45.000000
-75%	38766.000000	52.000000	70.000000	71.000000	71.000000	52.000000	51.000000	53.000000	52.000000	49.000000	...	72.000000	73.000000	71.000000	68.000000	71.000000	56.000000	52.000000	71.000000	58.000000	57.000000
-max	50927.000000	94.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	...	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000	100.000000
-8 rows × 21 columns
-users contient
 RESPID, l'identité anonmysée de l'utilisateur
 GENDER, Homme-Femme
 AGE, numérique
@@ -60,33 +39,13 @@ MUSIC, son appétance à la musique, 6 possibilités
 LIST_OWN, une estimation du nombre d'heures écoutées volontairement par jour
 LIST_BACK, l'estimation du temps d'écoute de musique de fond, non choisie volontairement
 Q1 à Q19, réponses de 0 à 100 à 19 questions
+
 Nous avons ici des variables numériques et catégorielles.
 Nous constatons qu'il y a 48645 utilisateurs différents dans l'enquêtes.
-In [183]:
 
-ratings.head(1)
-Out[183]:
-Artist	Track	User	Rating	Time
-0	40	179	47994	9	17
-In [184]:
 
-ratings.describe()
-Out[184]:
-Artist	Track	User	Rating	Time
-count	188690.000000	188690.000000	188690.000000	188690.000000	188690.000000
-mean	22.207753	86.516191	26478.842106	36.435391	15.660671
-std	14.485397	56.017025	13632.273985	22.586036	6.441050
-min	0.000000	0.000000	0.000000	0.000000	0.000000
-25%	10.000000	36.000000	17711.000000	15.000000	12.000000
-50%	22.000000	80.000000	27831.000000	32.000000	17.000000
-75%	35.000000	142.000000	35949.000000	50.000000	21.000000
-max	49.000000	183.000000	50927.000000	100.000000	23.000000
-In [185]:
-
-ratings.Track.unique().shape
-Out[185]:
-(184,)
 ratings contient :
+
 Artist, identifiant de l'artiste
 Track, identifiant de la chanson
 User, l'identité de l'utilisateur
@@ -94,565 +53,16 @@ Rating, la note donnée par l'utilisateur
 Time, la date à laquelle l'utilisateueur a donné son avis
 Nous n'avons ici ques des variables numériques. En revanche, la valeur numérique des identifiants n'a aucun sens réel. Nous ne prendrons pas en compte la variable 'Time' dans la suite de l'étude.
 Nous observons que l'enquête se fait sur 184 musiques différentes.
+
 Nous pouvons également observer la matrice d'adjacence correspondante. Chaque utilisateuer ne donnant que peu de notes, cette matrice comporte beaucoup de valeurs manquantes.
-In [186]:
 
-names = users.columns.tolist()
-names[names.index('RESPID')] = 'User'
-users.columns = names
-​
-merge = pd.merge(users, ratings)
-adjacence = merge.pivot_table(values='Rating', index='User', columns='Track')
-adjacence.head()
-Out[186]:
-Track	0	1	2	3	4	5	6	7	8	9	...	174	175	176	177	178	179	180	181	182	183
-User																					
-0	32	32	31	NaN	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
-1	27	28	NaN	49	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
-2	NaN	NaN	NaN	1	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
-3	NaN	28	30	29	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
-4	10	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
-5 rows × 184 columns
-Commencons par observer la distribution des notes :
-In [187]:
-
-ratings.Rating.hist()
-Out[187]:
-<matplotlib.axes._subplots.AxesSubplot at 0xddf25c0>
-
-Nous observons des notes assez également distribuées avant 60, puis moins de notes supérieures à 60.
-Observons maintenant la distribution des âges des users
-In [188]:
-
-users.AGE.hist(bins=30)
-plt.title("Distribution of users' ages")
-plt.ylabel('count of users')
-plt.xlabel('age')
-Out[188]:
-<matplotlib.text.Text at 0xf98c470>
-
-Encore une fois la distribution en âge est relativement uniforme, avec peu d'utilisateuers âgés de plus de 65 ans, et aucun enfant de moins de 10 ans.
-Nous pouvons également nous demander quelles sont les musiques qui ont reçu le plus de notes
-In [189]:
-
-top_tracks = pd.value_counts(ratings.Track)
-top_tracks.head()
-Out[189]:
-11    2795
-12    2782
-85    2471
-48    2378
-22    2295
-Name: Track, dtype: int64
-La musique 11 est celle récoltant le plus de notes. Mais qui sont ces noteurs ?
-In [190]:
-
-track11Reviewers = ratings[ratings.Track == 11].User
-track11Reviewers.head(10)
-Out[190]:
-40     37978
-87      5427
-199     2873
-232     2757
-290     3122
-401    36117
-408    37384
-419     3497
-511     5336
-545     3790
-Name: User, dtype: int64
 2) Peut-on prédire si un utilisateur va aimer ou non une musique ?
+
 Nous nous nous proposons de classifier l'utilité d'un utilisateur face à une musique par 1 s'il l'aime et par 0 s'il ne l'aime pas.
 Nous transformons donc les données de notes en attribuant 1 à une note supérieure à 50 et 0 à une note inférieure à 50.
 Les valeurs de LIST_OWN et LIST_BACK doivent être nettoyées car elles sont sous forme string au lieu d'être numériques. Nous transformons les variables qualitatives en dummy variables et nous choisissons de rejeter les valeurs manquantes (nous avons alors une base d'utilisateurs plus petite, de 26725 personnes).
-In [191]:
 
-data = users
-data.LIST_OWN[data.LIST_OWN == '1 hour'] = 1
-data.LIST_OWN[data.LIST_OWN == '2 hours'] = 2
-data.LIST_OWN[data.LIST_OWN == '5 hours'] = 5
-data.LIST_OWN[data.LIST_OWN == '7 hours'] = 7
-data.LIST_OWN[data.LIST_OWN == '1'] = 1
-data.LIST_OWN[data.LIST_OWN == '0'] = 0
-data.LIST_OWN[data.LIST_OWN == '8 hours'] = 8
-data.LIST_OWN[data.LIST_OWN == '5'] = 5
-data.LIST_OWN[data.LIST_OWN == '16 hours'] = 16
-data.LIST_OWN[data.LIST_OWN == '3'] = 3
-data.LIST_OWN[data.LIST_OWN == '2'] = 2
-data.LIST_OWN[data.LIST_OWN == '8'] = 8
-data.LIST_OWN[data.LIST_OWN == '0 hours'] = 0
-data.LIST_OWN[data.LIST_OWN == '6 hours'] = 6
-data.LIST_OWN[data.LIST_OWN == '4 hours'] = 4
-data.LIST_OWN[data.LIST_OWN == '4'] = 4
-data.LIST_OWN[data.LIST_OWN == '12 hours'] = 12
-data.LIST_OWN[data.LIST_OWN == '14 hours'] = 14
-data.LIST_OWN[data.LIST_OWN == '10 hours'] = 10
-data.LIST_OWN[data.LIST_OWN == '7'] = 7
-data.LIST_OWN[data.LIST_OWN == '15 hours'] = 15
-data.LIST_OWN[data.LIST_OWN == '6'] = 6
-data.LIST_OWN[data.LIST_OWN == '9 hours'] = 9
-data.LIST_OWN[data.LIST_OWN == '11 hours'] = 11
-data.LIST_OWN[data.LIST_OWN == '10'] = 10
-data.LIST_OWN[data.LIST_OWN == '12'] = 12
-data.LIST_OWN[data.LIST_OWN == '9'] = 9
-data.LIST_OWN[data.LIST_OWN == '13 hours'] = 13
-data.LIST_OWN[data.LIST_OWN == '15'] = 15
-data.LIST_OWN[data.LIST_OWN == '14'] = 14
-data.LIST_OWN[data.LIST_OWN == '20'] = 20
-data.LIST_OWN[data.LIST_OWN == '13'] = 13
-data.LIST_OWN[data.LIST_OWN == '24'] = 24
-data.LIST_OWN[data.LIST_OWN == '11'] = 11
-data.LIST_OWN[data.LIST_OWN == '16'] = 16
-data.LIST_OWN[data.LIST_OWN == '17'] = 17
-data.LIST_OWN[data.LIST_OWN == '18'] = 18
-data.LIST_OWN[data.LIST_OWN == 'Less than an hour'] = 0.5
-data.LIST_OWN[data.LIST_OWN == '16+ hours'] = 17
-data.LIST_OWN[data.LIST_OWN == 'More than 16 hours'] = 17
-data.LIST_OWN[data.LIST_OWN == '3 hours'] = 3
-data.LIST_OWN[data.LIST_OWN == '0 Hours'] = 0
-​
-data.LIST_BACK[data.LIST_BACK == '1 hour'] = 1
-data.LIST_BACK[data.LIST_BACK == '2 hours'] = 2
-data.LIST_BACK[data.LIST_BACK == '5 hours'] = 5
-data.LIST_BACK[data.LIST_BACK == '7 hours'] = 7
-data.LIST_BACK[data.LIST_BACK == '1'] = 1
-data.LIST_BACK[data.LIST_BACK == '0'] = 0
-data.LIST_BACK[data.LIST_BACK == '8 hours'] = 8
-data.LIST_BACK[data.LIST_BACK == '5'] = 5
-data.LIST_BACK[data.LIST_BACK == '16 hours'] = 16
-data.LIST_BACK[data.LIST_BACK == '3'] = 3
-data.LIST_BACK[data.LIST_BACK == '2'] = 2
-data.LIST_BACK[data.LIST_BACK == '8'] = 8
-data.LIST_BACK[data.LIST_BACK == '0 hours'] = 0
-data.LIST_BACK[data.LIST_BACK == '6 hours'] = 6
-data.LIST_BACK[data.LIST_BACK == '4 hours'] = 4
-data.LIST_BACK[data.LIST_BACK == '4'] = 4
-data.LIST_BACK[data.LIST_BACK == '12 hours'] = 12
-data.LIST_BACK[data.LIST_BACK == '14 hours'] = 14
-data.LIST_BACK[data.LIST_BACK == '10 hours'] = 10
-data.LIST_BACK[data.LIST_BACK == '7'] = 7
-data.LIST_BACK[data.LIST_BACK == '15 hours'] = 15
-data.LIST_BACK[data.LIST_BACK == '6'] = 6
-data.LIST_BACK[data.LIST_BACK == '9 hours'] = 9
-data.LIST_BACK[data.LIST_BACK == '11 hours'] = 11
-data.LIST_BACK[data.LIST_BACK == '10'] = 10
-data.LIST_BACK[data.LIST_BACK == '12'] = 12
-data.LIST_BACK[data.LIST_BACK == '9'] = 9
-data.LIST_BACK[data.LIST_BACK == '13 hours'] = 13
-data.LIST_BACK[data.LIST_BACK == '15'] = 15
-data.LIST_BACK[data.LIST_BACK == '14'] = 14
-data.LIST_BACK[data.LIST_BACK == '20'] = 20
-data.LIST_BACK[data.LIST_BACK == '13'] = 13
-data.LIST_BACK[data.LIST_BACK == '24'] = 24
-data.LIST_BACK[data.LIST_BACK == '11'] = 11
-data.LIST_BACK[data.LIST_BACK == '16'] = 16
-data.LIST_BACK[data.LIST_BACK == '17'] = 17
-data.LIST_BACK[data.LIST_BACK == '18'] = 18
-data.LIST_BACK[data.LIST_BACK == 'Less than an hour'] = 0.5
-data.LIST_BACK[data.LIST_BACK == '16+ hours'] = 17
-data.LIST_BACK[data.LIST_BACK == 'More than 16 hours'] = 17
-data.LIST_BACK[data.LIST_BACK == '3 hours'] = 3
-data.LIST_BACK[data.LIST_BACK == '0 Hours'] = 0
-data.LIST_BACK[data.LIST_BACK == nan] = 0
-data.LIST_BACK[data.LIST_BACK == '21'] = 21
-data.LIST_BACK[data.LIST_BACK == '19'] = 19
-data.LIST_OWN[data.LIST_OWN == nan] = 0
-data.LIST_OWN[data.LIST_OWN == '22'] = 22
-data.LIST_OWN=data.LIST_OWN.fillna(data.LIST_OWN.mean())
-data.LIST_BACK=data.LIST_BACK.fillna(data.LIST_BACK.mean())
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:2: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-  from ipykernel import kernelapp as app
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:3: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-  app.launch_new_instance()
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:4: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:5: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:6: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:7: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:8: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:9: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:10: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:11: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:12: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:13: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:14: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:15: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:16: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:17: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:18: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:19: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:20: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:21: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:22: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:23: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:24: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:25: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:26: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:27: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:28: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:29: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:30: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:31: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:32: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:33: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:34: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:35: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:36: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:37: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:38: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:39: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:40: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:41: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:42: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:43: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:45: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:46: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:47: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:48: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:49: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:50: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:51: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:52: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:53: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:54: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:55: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:56: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:57: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:58: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:59: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:60: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:61: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:62: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:63: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:64: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:65: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:66: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:67: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:68: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:69: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:70: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:71: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:72: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:73: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:74: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:75: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:76: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:77: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:78: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:79: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:80: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:81: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:82: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:83: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:84: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:85: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:86: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:87: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:88: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:89: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:90: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-C:\Users\utilisateur\Desktop\Cours\ENSAE\Info et ADD\Python\ensae\python\lib\site-packages\ipykernel\__main__.py:91: SettingWithCopyWarning: 
-A value is trying to be set on a copy of a slice from a DataFrame
-
-See the caveats in the documentation: http://pandas.pydata.org/pandas-docs/stable/indexing.html#indexing-view-versus-copy
-In [194]:
-
-data = data.dropna()
 On peut regarder les histogrammes des features
-In [239]:
-
-users.hist()
-Out[239]:
-array([[<matplotlib.axes._subplots.AxesSubplot object at 0x0000000035AB06D8>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000380490B8>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x0000000038085C88>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000380BDC18>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x0000000038103710>],
-       [<matplotlib.axes._subplots.AxesSubplot object at 0x000000003813F4A8>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000381895F8>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000381C9358>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000382135C0>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x000000003825CAC8>],
-       [<matplotlib.axes._subplots.AxesSubplot object at 0x000000003829F160>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000382E7C50>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x0000000038328320>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x000000003836FF28>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000383ACF98>],
-       [<matplotlib.axes._subplots.AxesSubplot object at 0x00000000383F6F28>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x0000000038432E48>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000384850F0>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000384CE630>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x000000003850ADA0>],
-       [<matplotlib.axes._subplots.AxesSubplot object at 0x0000000038558400>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x0000000038594E10>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x00000000385E3940>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x000000003809F438>,
-        <matplotlib.axes._subplots.AxesSubplot object at 0x000000003862D630>]], dtype=object)
-
-In [195]:
 
 data.User.count() # Nombre d'utilisateurs restants
 Out[195]:
@@ -719,8 +129,11 @@ y1 = np.asarray(Y)
 y1[y1 < 50] = 0
 y1[y1 >= 50] = 1
 Y = pd.DataFrame(y1)
+
+
 Nos données sont donc prêtes à être entrainées par des modèles de classification binaire !
 Commencons par diviser notre base en base d'apprentissage et base de test.
+
 In [207]:
 
 from sklearn.cross_validation import train_test_split
@@ -738,7 +151,10 @@ Y_test = np.asarray(Y_test)
 In [215]:
 
 clf = clf.fit(X_train, Y_train.ravel())
+
+
 Calculons alors la matrice de confusion associée à notre apprentissage
+
 In [216]:
 
 from sklearn.metrics import confusion_matrix
@@ -760,6 +176,7 @@ Out[216]:
 <matplotlib.text.Text at 0xf426860>
 
 On peut alors regarder l’importance des variables dans la construction du résultat
+
 In [217]:
 
 feature_name = X.columns
@@ -781,6 +198,7 @@ Q11 : Pop music is fun, it makes me feel good (Thinking now about music, to what
 Q17 : I find seeing a new artist / band on TV a useful way of discovering new music (Thinking now about music, to what extent would you agree or disagree with the following statements?)
 Q4 : I would like to buy new music but I don't know what to buy (Thinking now about music, to what extent would you agree or disagree with the following statements?)
 Procédons à un ACP pour observer les variables
+
 In [218]:
 
 from sklearn.decomposition import PCA
@@ -1275,6 +693,8 @@ In [313]:
 track_predictor(2333, 13)
 Out[313]:
 -11.469524488487739
+
+
 4) Ouverture : la factorisation de matrice
 Durant la première étape, nous avions regardé la matrice d'adjacence
 In [329]:
@@ -1289,6 +709,7 @@ User
 3	NaN	28	30	29	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
 4	10	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	...	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN	NaN
 5 rows × 184 columns
+
 Cette matrice donne un accès intuitif aux notes de chaque utilisateur sur une même lignes. Ainsi, on a une matrice très grande, dont la majorité des valeurs sont manquantes. Le but de notre système de recommandation serait de remplir les cases manquantes !
 Nous allons alors aborder le thème de la factorisation de matrice, méthode très utilisée dans les librairies python spécialisées dans les systèmes de recommandation. Le principe est d'estimer la matrice d'adjacence complète (ie avec des valeurs partout) par un produit de matrice, de telle sorte que ce produit de matrice donne, pour les valeurs déjà connues de notes données auparavant, une estimation à erreur minimisée (comme d'habitude une métrique et une fonction de perte doivent être choisies, souvent norme euclidienne et perte quadratique). Ces matrices étant determinées, on obtient alors une estimation des notes qui n'avaient pas été données auparavant !!! Pour calculer ces matrices, il convient de partir de deux matrices quelconques, puis d'appliquer un algorithme itératif de type gradient descent pour minimiser la fonction de perte (on change les coefficients des matrices désirées à chaque itération).
 In [330]:
@@ -1316,7 +737,10 @@ In [339]:
 model.reconstruction_err_ 
 Out[339]:
 17141.308428422883
+
+
 Conclusion
+
 Nous avons étudié le problème de recommandation de musiques sous plusieurs formes.
 Dans un premier temps nous avons considéré la recommandation comme un problème de classification binaire. A partir d'informations sur les personnes interrogées, on a utilisé des modèles capables d'apprendre des tendances et donc de proposer des prédictions d'appréciation en fonction de la connaissance de la personne enregistrée. Nous avons utilisé plusieurs modèles et compar les résultats. Le random forest donnait les meilleurs résultats.
 Puis on a voulu donner des recommandations en fonction de mesures de similarités, entre personnes ou entre chansons. On a a lors écrit des fonctions de prédictions dans ces deux paradigmes.
